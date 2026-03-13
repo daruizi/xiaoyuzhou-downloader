@@ -1,0 +1,17 @@
+{
+    "podcasts": [
+        {
+            "name": "声动早咖啡",
+            "rss_url": "https://www.ximalaya.com/album/51076156.xml",
+            "xiaoyuzhou_url": "https://www.xiaoyuzhoufm.com/podcast/60de7c003dd577b40d5a40f3"
+        }
+    ],
+    "download_dir": "./downloads",
+    "max_workers": 3,
+    "retry_times": 3,
+    "retry_delay": 5,
+    "request_timeout": 30,
+    "download_timeout": 120,
+    "check_updates": true,
+    "auto_update_days": 1
+}
