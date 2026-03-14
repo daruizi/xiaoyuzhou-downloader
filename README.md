@@ -14,36 +14,60 @@
 
 ## 设计思路
 
+### 系统工作流程
+
+```mermaid
+flowchart TD
+    subgraph Input["输入"]
+        A[播客配置] --> B[config.json]
+    end
+
+    subgraph Process["处理流程"]
+        B --> C{RSS Feed 已配置?}
+        C -->|是| D[解析 RSS]
+        C -->|否| E[Apple Podcasts API 查找]
+        E --> D
+        D --> F[获取节目列表]
+        F --> G[对比缓存]
+        G --> H[筛选新节目]
+        H --> I[并发下载]
+    end
+
+    subgraph Output["输出"]
+        I --> J[保存音频文件]
+        I --> K[更新缓存]
+    end
+```
+
 ### 架构设计
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     XiaoyuzhouDownloader                    │
-│                      (主控制器)                              │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
-│  │   Config    │  │  RSSParser  │  │  DownloadManager    │  │
-│  │  (配置管理) │  │ (RSS解析)   │  │    (下载管理)       │  │
-│  └─────────────┘  └─────────────┘  └─────────────────────┘  │
-│                                                             │
-├─────────────────────────────────────────────────────────────┤
-│                      数据存储层                              │
-│  ┌─────────────────┐  ┌─────────────────────────────────┐  │
-│  │   config.json   │  │     episodes_cache.json         │  │
-│  │   (配置文件)    │  │   (节目缓存 + 下载状态)         │  │
-│  └─────────────────┘  └─────────────────────────────────┘  │
-│                                                             │
-├─────────────────────────────────────────────────────────────┤
-│                      文件存储层                              │
-│  downloads/                                                 │
-│  └── 播客名称/                                              │
-│      ├── 2026-01/                                          │
-│      │   ├── 2026-01-15_节目标题.m4a                       │
-│      │   └── ...                                           │
-│      ├── 2026-02/                                          │
-│      └── episodes_cache.json                               │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph Main["XiaoyuzhouDownloader (主控制器)"]
+        Config["Config<br/>(配置管理)"]
+        RSSParser["RSSParser<br/>(RSS解析)"]
+        DownloadManager["DownloadManager<br/>(下载管理)"]
+    end
+
+    subgraph DataLayer["数据存储层"]
+        ConfigFile["config.json<br/>(配置文件)"]
+        CacheFile["episodes_cache.json<br/>(节目缓存 + 下载状态)"]
+    end
+
+    subgraph FileLayer["文件存储层"]
+        Downloads["downloads/"]
+        PodcastDir["播客名称/"]
+        MonthDir1["2026-01/"]
+        MonthDir2["2026-02/"]
+        AudioFile["2026-01-15_节目标题.m4a"]
+    end
+
+    Main --> DataLayer
+    DataLayer --> FileLayer
+    Downloads --> PodcastDir
+    PodcastDir --> MonthDir1
+    PodcastDir --> MonthDir2
+    MonthDir1 --> AudioFile
 ```
 
 ### 核心模块
@@ -53,9 +77,14 @@
 由于小宇宙平台没有公开的分页 API，页面只能显示最新的 15 期节目。通过研究发现，大多数播客在喜马拉雅等平台有同步发布，这些平台提供完整的 RSS Feed。
 
 **RSS Feed 发现流程**:
-1. 通过 Apple Podcasts Search API 搜索播客名称
-2. 获取播客的 `feedUrl` 字段
-3. 解析 RSS Feed 获取完整的节目列表
+
+```mermaid
+flowchart LR
+    A[播客名称] --> B[Apple Podcasts Search API]
+    B --> C[获取 feedUrl]
+    C --> D[解析 RSS Feed]
+    D --> E[完整节目列表]
+```
 
 #### 2. DownloadManager (下载管理器)
 
@@ -65,15 +94,13 @@
 - 使用 GUID 作为唯一标识
 
 **下载流程**:
-```
-┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│ 检查是否已下载 │──否──▶│  下载音频文件  │──▶│  验证完整性   │
-└──────────────┘     └──────────────┘     └──────────────┘
-        │是                                        │
-        ▼                                          ▼
-┌──────────────┐                           ┌──────────────┐
-│   跳过下载   │                           │  保存到本地   │
-└──────────────┘                           └──────────────┘
+
+```mermaid
+flowchart TD
+    A[检查是否已下载] -->|否| B[下载音频文件]
+    B --> C[验证完整性]
+    C --> D[保存到本地]
+    A -->|是| E[跳过下载]
 ```
 
 #### 3. Config (配置管理)
